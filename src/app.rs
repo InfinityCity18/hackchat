@@ -1,4 +1,5 @@
 use color_eyre::eyre::{Ok, Result};
+use ratatui::crossterm::event::{self, Event, KeyEventKind};
 use ratatui::widgets::Widget;
 use ratatui::Frame;
 use ratatui::{backend::CrosstermBackend, Terminal};
@@ -11,7 +12,7 @@ pub struct App {
     pub room_name: Option<String>,
     pub input_field: String,
     pub input_index: usize,
-    pub chat_messages: Vec<String>,
+    pub chat_messages: Vec<(String, String)>,
     pub chat_index: usize,
     pub exit: bool,
     pub online_users: HashSet<String>,
@@ -25,7 +26,8 @@ pub enum CurrentScreen {
 
 pub enum Mode {
     Main,
-    Input,
+    Searching,
+    Inputing,
 }
 
 impl App {
@@ -56,6 +58,12 @@ impl App {
     }
 
     fn handle_events(&mut self) -> Result<()> {
+        match event::read()? {
+            Event::Key(key_event) if key_event.kind == KeyEventKind::Press => {
+                self.exit = true;
+            }
+            _ => {}
+        }
         Ok(())
     }
 
