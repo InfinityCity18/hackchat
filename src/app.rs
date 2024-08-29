@@ -2,6 +2,7 @@ use color_eyre::eyre::{Ok, Result};
 use ratatui::widgets::Widget;
 use ratatui::Frame;
 use ratatui::{backend::CrosstermBackend, Terminal};
+use std::collections::HashSet;
 use std::io::Stdout;
 
 pub struct App {
@@ -13,6 +14,7 @@ pub struct App {
     pub chat_messages: Vec<String>,
     pub chat_index: usize,
     pub exit: bool,
+    pub online_users: HashSet<String>,
 }
 
 pub enum CurrentScreen {
@@ -37,6 +39,7 @@ impl App {
             chat_messages: Vec::new(),
             chat_index: 0,
             exit: false,
+            online_users: HashSet::new(),
         }
     }
 
@@ -86,5 +89,9 @@ impl App {
             .map(|(i, _)| i)
             .nth(self.input_index)
             .unwrap_or(self.input_field.len())
+    }
+
+    fn exit(&mut self) {
+        self.exit = true;
     }
 }
