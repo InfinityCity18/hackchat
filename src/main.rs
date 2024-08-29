@@ -3,6 +3,7 @@ use tui::init_panic_hook;
 
 mod app;
 mod tui;
+mod ui;
 
 fn main() -> Result<()> {
     color_eyre::install()?;
