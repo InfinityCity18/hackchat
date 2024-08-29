@@ -16,6 +16,7 @@ pub struct App {
     pub chat_index: usize,
     pub exit: bool,
     pub online_users: HashSet<String>,
+    pub follow_chat: bool,
 }
 
 pub enum CurrentScreen {
@@ -42,6 +43,7 @@ impl App {
             chat_index: 0,
             exit: false,
             online_users: HashSet::new(),
+            follow_chat: false,
         }
     }
 

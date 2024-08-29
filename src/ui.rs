@@ -4,6 +4,8 @@ use ratatui::widgets::{BorderType, List, ListItem, Paragraph};
 use ratatui::{prelude::*, widgets::Block};
 
 const ONLINE_USERS_STR: &str = " Online users ";
+const BORDER_WIDTH: usize = 1;
+const USERNAME_WRAP_WIDTH: usize = 4;
 
 impl Widget for &App {
     fn render(self, area: ratatui::prelude::Rect, buf: &mut ratatui::prelude::Buffer)
@@ -65,6 +67,15 @@ impl Widget for &App {
                         .position(Position::Top),
                 );
             }
+
+            let mut messages_list: Vec<ListItem> = Vec::new();
+
+            /*
+            let chat_index= if self.chat_index >
+            for a in self.chat_messages {
+            let prefix_len = (1 + i/10) + USERNAME_WRAP_WIDTH
+            }
+            */
         }
     }
 }
