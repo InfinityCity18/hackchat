@@ -12,7 +12,8 @@ pub struct App {
     pub room_name: Option<String>,
     pub input_field: String,
     pub input_index: usize,
-    pub chat_messages: Vec<(String, String)>,
+    pub network_messages: Vec<(String, String)>,
+    pub chat_messages: (usize, Vec<String>),
     pub chat_index: usize,
     pub exit: bool,
     pub online_users: HashSet<String>,
@@ -39,7 +40,8 @@ impl App {
             room_name: None,
             input_field: String::new(),
             input_index: 0,
-            chat_messages: Vec::new(),
+            network_messages: Vec::new(),
+            chat_messages: (0, Vec::new()),
             chat_index: 0,
             exit: false,
             online_users: HashSet::new(),
@@ -49,14 +51,10 @@ impl App {
 
     pub fn run(&mut self, terminal: &mut Terminal<CrosstermBackend<Stdout>>) -> Result<()> {
         while !self.exit {
-            terminal.draw(|frame| self.render_frame(frame))?;
+            terminal.draw(|frame| self.ui(frame))?;
             self.handle_events()?;
         }
         Ok(())
-    }
-
-    fn render_frame(&self, frame: &mut Frame) {
-        frame.render_widget(self, frame.area());
     }
 
     fn handle_events(&mut self) -> Result<()> {
@@ -101,7 +99,37 @@ impl App {
             .unwrap_or(self.input_field.len())
     }
 
-    fn exit(&mut self) {
+    pub fn exit(&mut self) {
         self.exit = true;
+    }
+
+    pub fn create_lines(&mut self, window_width: usize) {
+        let mut lines: Vec<String> = Vec::new();
+
+        let mut i = 1;
+        for (username, msg) in &self.network_messages {
+            let formated_msg = format!(" |{username}| {msg}");
+
+            let mut line = String::new();
+            let mut m = 0;
+            for c in formated_msg.chars() {
+                if m % window_width == 0 {
+                    lines.push(line.clone());
+                    line.clear();
+                    line += " ";
+                    line += &i.to_string();
+                    m += line.len();
+                    i += 1;
+                }
+                line.push(c);
+                m += 1;
+            }
+
+            if line.len() > 0 {
+                lines.push(line)
+            }
+        }
+
+        self.chat_messages = (window_width, lines);
     }
 }

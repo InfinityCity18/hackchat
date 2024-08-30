@@ -5,16 +5,16 @@ use ratatui::{prelude::*, widgets::Block};
 
 const ONLINE_USERS_STR: &str = " Online users ";
 const BORDER_WIDTH: usize = 1;
-const USERNAME_WRAP_WIDTH: usize = 4;
+pub const USERNAME_WRAP_WIDTH: usize = 4;
 
-impl Widget for &App {
-    fn render(self, area: ratatui::prelude::Rect, buf: &mut ratatui::prelude::Buffer)
+impl App {
+    pub fn ui(&mut self, frame: &mut Frame)
     where
         Self: Sized,
     {
         let [chat_window, online_users_window] =
             Layout::horizontal([Constraint::Percentage(65), Constraint::Percentage(35)])
-                .areas(area);
+                .areas(frame.area());
 
         //online users window
         {
@@ -32,7 +32,7 @@ impl Widget for &App {
                 list_items.push(ListItem::new(Text::from(format!("> {}", username.clone()))));
             }
             let usernames_list = List::new(list_items).block(online_users_block);
-            <List as Widget>::render(usernames_list, online_users_window, buf);
+            frame.render_widget(usernames_list, online_users_window);
         }
 
         let [messages_box, chat_input] =
@@ -44,7 +44,7 @@ impl Widget for &App {
                 .border_type(BorderType::Rounded);
 
             let para = Paragraph::new(self.input_field.clone()).block(chat_input_block);
-            para.render(chat_input, buf);
+            frame.render_widget(para, chat_input);
         }
 
         {
@@ -69,13 +69,28 @@ impl Widget for &App {
             }
 
             let mut messages_list: Vec<ListItem> = Vec::new();
-
-            /*
-            let chat_index= if self.chat_index >
-            for a in self.chat_messages {
-            let prefix_len = (1 + i/10) + USERNAME_WRAP_WIDTH
+            if self.chat_messages.0 != (messages_box.width as usize).saturating_sub(BORDER_WIDTH) {
+                self.create_lines((messages_box.width as usize).saturating_sub(BORDER_WIDTH));
             }
-            */
+
+            let start = self.chat_index.clamp(
+                0,
+                self.chat_messages
+                    .1
+                    .len()
+                    .checked_sub(messages_box.height as usize - BORDER_WIDTH)
+                    .unwrap_or(0),
+            );
+            let end = (start + messages_box.height as usize - BORDER_WIDTH)
+                .clamp(start, self.chat_messages.1.len());
+
+            for s in &self.chat_messages.1[start..end] {
+                messages_list.push(ListItem::new(Text::from(s.clone())));
+            }
+
+            eprintln!("{:?}", messages_list);
+            let list = List::new(messages_list).block(messages_box_block);
+            frame.render_widget(list, messages_box);
         }
     }
 }

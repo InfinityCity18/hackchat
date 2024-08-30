@@ -13,6 +13,8 @@ fn main() -> Result<()> {
     let mut app = App::new();
 
     app.online_users.insert("User2137".to_string());
+    app.network_messages
+        .push(("gyatt_enjoyer".to_string(), "sigma rel".to_string()));
 
     let result = app.run(&mut terminal);
     if let Err(err) = tui::restore_tui() {
