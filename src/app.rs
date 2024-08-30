@@ -1,5 +1,5 @@
 use color_eyre::eyre::{Ok, Result};
-use ratatui::crossterm::event::{self, Event, KeyEventKind};
+use ratatui::crossterm::event::{self, Event, KeyCode, KeyEventKind};
 use ratatui::widgets::Widget;
 use ratatui::Frame;
 use ratatui::{backend::CrosstermBackend, Terminal};
@@ -8,6 +8,7 @@ use std::io::Stdout;
 
 pub struct App {
     pub current_screen: CurrentScreen,
+    pub mode: Option<Mode>,
     pub username: Option<String>,
     pub room_name: Option<String>,
     pub input_field: String,
@@ -15,9 +16,15 @@ pub struct App {
     pub network_messages: Vec<(String, String)>,
     pub chat_messages: (usize, Vec<String>),
     pub chat_index: usize,
+    pub max_chat_index: usize,
     pub exit: bool,
     pub online_users: HashSet<String>,
     pub follow_chat: bool,
+    pub inserting: Inserting,
+    pub username_input: String,
+    pub room_input: String,
+    pub username_index: usize,
+    pub room_indes: usize,
 }
 
 pub enum CurrentScreen {
@@ -32,10 +39,16 @@ pub enum Mode {
     Inputing,
 }
 
+pub enum Inserting {
+    Username,
+    Room,
+}
+
 impl App {
     pub fn new() -> Self {
         App {
             current_screen: CurrentScreen::Enter,
+            mode: None,
             username: None,
             room_name: None,
             input_field: String::new(),
@@ -43,9 +56,15 @@ impl App {
             network_messages: Vec::new(),
             chat_messages: (0, Vec::new()),
             chat_index: 0,
+            max_chat_index: 0,
             exit: false,
             online_users: HashSet::new(),
             follow_chat: false,
+            inserting: Inserting::Username,
+            username_input: String::new(),
+            room_input: String::new(),
+            username_index: 0,
+            room_indes: 0,
         }
     }
 
@@ -58,13 +77,42 @@ impl App {
     }
 
     fn handle_events(&mut self) -> Result<()> {
+        self.exit = true;
         match event::read()? {
-            Event::Key(key_event) if key_event.kind == KeyEventKind::Press => {
-                self.exit = true;
-            }
+            Event::Key(key) if key.kind == KeyEventKind::Press => match self.current_screen {
+                CurrentScreen::Main => match key.code {
+                    KeyCode::Esc => self.current_screen = CurrentScreen::Quit,
+                    _ => {}
+                },
+                CurrentScreen::Quit => match key.code {
+                    KeyCode::Char('y') => self.exit(),
+                    KeyCode::Char('n') => self.current_screen = CurrentScreen::Main,
+                    KeyCode::Esc => self.current_screen = CurrentScreen::Main,
+                    _ => {}
+                },
+                CurrentScreen::Enter => match key.code {
+                    KeyCode::Esc => self.exit(),
+                    KeyCode::Tab => s,
+                },
+            },
             _ => {}
         }
         Ok(())
+    }
+
+    fn switch_inserting_mode(&mut self) {
+        match &self.inserting {
+            Inserting::Username => self.inserting = Inserting::Room,
+            Inserting::Room => self.inserting = Inserting::Username,
+        }
+    }
+
+    fn scroll_up(&mut self) {
+        self.chat_index = self.chat_index.saturating_sub(1);
+    }
+
+    fn scroll_down(&mut self) {
+        self.chat_index = (self.chat_index + 1).clamp(0, self.max_chat_index);
     }
 
     fn move_cursor_left(&mut self) {
@@ -108,16 +156,19 @@ impl App {
 
         let mut i = 1;
         for (username, msg) in &self.network_messages {
-            let formated_msg = format!(" |{username}| {msg}");
+            let formated_msg = format!("|{username}| {msg}");
 
             let mut line = String::new();
             let mut m = 0;
             for c in formated_msg.chars() {
                 if m % window_width == 0 {
-                    lines.push(line.clone());
+                    if line.len() > 0 {
+                        lines.push(line.clone());
+                    }
                     line.clear();
                     line += " ";
                     line += &i.to_string();
+                    line += " ";
                     m += line.len();
                     i += 1;
                 }

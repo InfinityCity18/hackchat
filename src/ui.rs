@@ -1,6 +1,6 @@
-use crate::app::App;
+use crate::app::{App, CurrentScreen};
 use ratatui::widgets::block::{Position, Title};
-use ratatui::widgets::{BorderType, List, ListItem, Paragraph};
+use ratatui::widgets::{BorderType, Clear, List, ListItem, Paragraph};
 use ratatui::{prelude::*, widgets::Block};
 
 const ONLINE_USERS_STR: &str = " Online users ";
@@ -16,7 +16,6 @@ impl App {
             Layout::horizontal([Constraint::Percentage(65), Constraint::Percentage(35)])
                 .areas(frame.area());
 
-        //online users window
         {
             let online_users_block = Block::bordered()
                 .style(Style::default())
@@ -38,6 +37,12 @@ impl App {
         let [messages_box, chat_input] =
             Layout::vertical([Constraint::Percentage(100), Constraint::Min(3)]).areas(chat_window);
 
+        self.max_chat_index = self
+            .chat_messages
+            .1
+            .len()
+            .checked_sub(messages_box.height as usize - BORDER_WIDTH)
+            .unwrap_or(0);
         {
             let chat_input_block = Block::bordered()
                 .style(Style::default())
@@ -62,8 +67,8 @@ impl App {
 
             if let Some(room_name) = &self.room_name {
                 messages_box_block = messages_box_block.title(
-                    Title::from(room_name.clone())
-                        .alignment(Alignment::Left)
+                    Title::from(format!(" {} ", room_name))
+                        .alignment(Alignment::Center)
                         .position(Position::Top),
                 );
             }
@@ -88,9 +93,58 @@ impl App {
                 messages_list.push(ListItem::new(Text::from(s.clone())));
             }
 
-            eprintln!("{:?}", messages_list);
             let list = List::new(messages_list).block(messages_box_block);
             frame.render_widget(list, messages_box);
         }
+
+        match self.current_screen {
+            CurrentScreen::Enter => {
+                let window = centered_rect(50, 50, frame.area());
+                let enter_block = Block::bordered()
+                    .border_type(BorderType::Rounded)
+                    .style(Style::default().bg(Color::Black));
+                let inner = enter_block.inner(window);
+                let [_, username_rect, _, room_rect, _] = Layout::vertical([
+                    Constraint::Percentage(23),
+                    Constraint::Min(3),
+                    Constraint::Percentage(45),
+                    Constraint::Min(3),
+                    Constraint::Percentage(23),
+                ])
+                .areas(inner);
+                frame.render_widget(enter_block, window);
+                let username_block = Block::bordered().border_type(BorderType::Rounded);
+                let room_block = Block::bordered().border_type(BorderType::Rounded);
+                let username_input =
+                    Paragraph::new(self.username_input.as_str()).block(username_block);
+                let room_input = Paragraph::new(self.room_input.as_str()).block(room_block);
+
+                frame.render_widget(Clear, inner);
+                frame.render_widget(username_input, username_rect);
+                frame.render_widget(room_input, room_rect);
+            }
+            CurrentScreen::Main => {}
+            CurrentScreen::Quit => {}
+        }
     }
+}
+
+fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
+    let popup_layout = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Percentage((100 - percent_y) / 2),
+            Constraint::Percentage(percent_y),
+            Constraint::Percentage((100 - percent_y) / 2),
+        ])
+        .split(r);
+
+    Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([
+            Constraint::Percentage((100 - percent_x) / 2),
+            Constraint::Percentage(percent_x),
+            Constraint::Percentage((100 - percent_x) / 2),
+        ])
+        .split(popup_layout[1])[1]
 }

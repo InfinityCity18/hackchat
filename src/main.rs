@@ -14,7 +14,11 @@ fn main() -> Result<()> {
 
     app.online_users.insert("User2137".to_string());
     app.network_messages
-        .push(("gyatt_enjoyer".to_string(), "sigma rel".to_string()));
+        .push(("test".to_string(), "hi :3".to_string()));
+    app.room_name = Some("bajo jajo".to_string());
+    app.username = Some("user2".to_string());
+    app.username_input = "testo".to_string();
+    app.room_input = "roomnamme".to_string();
 
     let result = app.run(&mut terminal);
     if let Err(err) = tui::restore_tui() {
