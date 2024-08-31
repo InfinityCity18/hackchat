@@ -154,23 +154,25 @@ impl App {
             CurrentScreen::Main => {}
             CurrentScreen::Quit => {
                 let [_, window, _] = Layout::vertical([
-                    Constraint::Percentage(100),
-                    Constraint::Length(3),
-                    Constraint::Percentage(100),
+                    Constraint::Fill(1),
+                    Constraint::Length(5),
+                    Constraint::Fill(1),
                 ])
                 .areas(frame.area());
                 let [_, window, _] = Layout::horizontal([
-                    Constraint::Percentage(100),
-                    Constraint::Length(3),
-                    Constraint::Percentage(100),
+                    Constraint::Fill(1),
+                    Constraint::Length(" Do you want to quit? y/n ".len() as u16 + 4),
+                    Constraint::Fill(1),
                 ])
                 .areas(window);
                 let block = Block::bordered().border_type(BorderType::Rounded);
-                let para = Paragraph::new("Do you want to quit? y/n")
-                    .centered()
-                    .block(block);
+                let para = Paragraph::new(" Do you want to quit? y/n ").centered();
                 frame.render_widget(Clear, window);
-                frame.render_widget(para, window);
+                frame.render_widget(block, window);
+                frame.render_widget(
+                    para,
+                    Rect::new(window.x, window.y + 2, window.width, window.height),
+                );
             }
         }
     }

@@ -82,6 +82,7 @@ impl App {
         match event::read()? {
             Event::Key(key) if key.kind == KeyEventKind::Press => match self.current_screen {
                 CurrentScreen::Main => match key.code {
+                    KeyCode::Esc => self.current_screen = CurrentScreen::Quit,
                     _ => {}
                 },
                 CurrentScreen::Quit => match key.code {
@@ -113,6 +114,7 @@ impl App {
                         Inserting::Room => self.move_cursor_right(self.inserting),
                         Inserting::Chat => panic!("inserting chat while in login screen"),
                     },
+                    KeyCode::Enter => self.submit_login(),
 
                     _ => {}
                 },
@@ -128,6 +130,13 @@ impl App {
             Inserting::Room => self.inserting = Inserting::Username,
             Inserting::Chat => {}
         }
+    }
+
+    fn submit_login(&mut self) {
+        self.username = Some(self.username_input.clone());
+        self.room_name = Some(self.room_input.clone());
+        self.current_screen = CurrentScreen::Main;
+        self.mode = Some(Mode::Main);
     }
 
     fn scroll_up(&mut self) {
