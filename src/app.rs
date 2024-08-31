@@ -1,7 +1,7 @@
 use color_eyre::eyre::{Ok, Result};
 use ratatui::crossterm::event::{self, Event, KeyCode, KeyEventKind};
-use ratatui::widgets::Widget;
-use ratatui::Frame;
+use ratatui::layout::Position;
+use ratatui::prelude::Rect;
 use ratatui::{backend::CrosstermBackend, Terminal};
 use std::collections::HashSet;
 use std::io::Stdout;
@@ -79,7 +79,6 @@ impl App {
     }
 
     fn handle_events(&mut self) -> Result<()> {
-        self.exit = true;
         match event::read()? {
             Event::Key(key) if key.kind == KeyEventKind::Press => match self.current_screen {
                 CurrentScreen::Main => match key.code {
@@ -102,8 +101,19 @@ impl App {
                     KeyCode::Backspace => match self.inserting {
                         Inserting::Username => self.delete_char(self.inserting),
                         Inserting::Room => self.delete_char(self.inserting),
-                        Inserting::Chat => (),
+                        Inserting::Chat => panic!("inserting chat while in login screen"),
                     },
+                    KeyCode::Left => match self.inserting {
+                        Inserting::Username => self.move_cursor_left(self.inserting),
+                        Inserting::Room => self.move_cursor_left(self.inserting),
+                        Inserting::Chat => panic!("inserting chat while in login screen"),
+                    },
+                    KeyCode::Right => match self.inserting {
+                        Inserting::Username => self.move_cursor_right(self.inserting),
+                        Inserting::Room => self.move_cursor_right(self.inserting),
+                        Inserting::Chat => panic!("inserting chat while in login screen"),
+                    },
+
                     _ => {}
                 },
             },
@@ -170,6 +180,22 @@ impl App {
             Inserting::Chat => count = self.chat_input.chars().count(),
         }
         new_cursor_pos.clamp(0, count)
+    }
+
+    pub fn cursor_pos(&self, input_area: Rect, inserting: Inserting) -> Position {
+        match inserting {
+            Inserting::Username => Position::new(
+                input_area.x + self.username_index as u16 + 1,
+                input_area.y + 1,
+            ),
+            Inserting::Room => {
+                Position::new(input_area.x + self.room_index as u16 + 1, input_area.y + 1)
+            }
+            Inserting::Chat => Position::new(
+                input_area.x + self.chat_input_index as u16 + 1,
+                input_area.y + 1,
+            ),
+        }
     }
 
     fn reset_cursor(&mut self, inserting: Inserting) {

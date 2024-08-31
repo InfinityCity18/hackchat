@@ -1,11 +1,10 @@
-use crate::app::{App, CurrentScreen};
+use crate::app::{App, CurrentScreen, Inserting};
 use ratatui::widgets::block::{Position, Title};
 use ratatui::widgets::{BorderType, Clear, List, ListItem, Paragraph};
 use ratatui::{prelude::*, widgets::Block};
 
 const ONLINE_USERS_STR: &str = " Online users ";
 const BORDER_WIDTH: usize = 1;
-pub const USERNAME_WRAP_WIDTH: usize = 4;
 
 impl App {
     pub fn ui(&mut self, frame: &mut Frame)
@@ -99,10 +98,22 @@ impl App {
 
         match self.current_screen {
             CurrentScreen::Login => {
-                let window = centered_rect(50, 50, frame.area());
+                let window = centered_rect(50, 20, frame.area());
                 let enter_block = Block::bordered()
                     .border_type(BorderType::Rounded)
-                    .style(Style::default().bg(Color::Black));
+                    .style(Style::default().bg(Color::Black))
+                    .title(
+                        Title::default()
+                            .alignment(Alignment::Center)
+                            .position(Position::Top)
+                            .content(" Welcome to hackchat! "),
+                    )
+                    .title(
+                        Title::default()
+                            .alignment(Alignment::Center)
+                            .position(Position::Bottom)
+                            .content(" Press <Tab> to switch fields, <Enter> to submit "),
+                    );
                 let inner = enter_block.inner(window);
                 let [_, username_rect, _, room_rect, _] = Layout::vertical([
                     Constraint::Percentage(23),
@@ -113,8 +124,19 @@ impl App {
                 ])
                 .areas(inner);
                 frame.render_widget(enter_block, window);
-                let username_block = Block::bordered().border_type(BorderType::Rounded);
-                let room_block = Block::bordered().border_type(BorderType::Rounded);
+                let username_block = Block::bordered().border_type(BorderType::Rounded).title(
+                    Title::default()
+                        .position(Position::Top)
+                        .alignment(Alignment::Center)
+                        .content(" Username "),
+                );
+
+                let room_block = Block::bordered().border_type(BorderType::Rounded).title(
+                    Title::default()
+                        .position(Position::Top)
+                        .alignment(Alignment::Center)
+                        .content(" Room name "),
+                );
                 let username_input =
                     Paragraph::new(self.username_input.as_str()).block(username_block);
                 let room_input = Paragraph::new(self.room_input.as_str()).block(room_block);
@@ -122,6 +144,12 @@ impl App {
                 frame.render_widget(Clear, inner);
                 frame.render_widget(username_input, username_rect);
                 frame.render_widget(room_input, room_rect);
+                let input_area = match self.inserting {
+                    Inserting::Username => username_rect,
+                    Inserting::Room => room_rect,
+                    Inserting::Chat => panic!("inserting chat while in login screen"),
+                };
+                frame.set_cursor_position(self.cursor_pos(input_area, self.inserting))
             }
             CurrentScreen::Main => {}
             CurrentScreen::Quit => {
