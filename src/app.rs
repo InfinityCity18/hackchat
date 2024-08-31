@@ -324,4 +324,37 @@ impl App {
 
         self.chat_messages = (window_width, lines);
     }
+
+    pub fn add_message_to_network_and_chat(&mut self, username: String, msg: String) {
+        self.network_messages.push((username.clone(), msg.clone()));
+        let mut lines = Vec::new();
+        let mut i = 1;
+        let formated_msg = format!("|{username}| {msg}");
+
+        let mut line = String::new();
+        let mut m = 0;
+        for c in formated_msg.chars() {
+            if m % self.chat_messages.0 == 0 {
+                if line.len() > 0 {
+                    lines.push(line.clone());
+                }
+                line.clear();
+                line += " ";
+                line += &i.to_string();
+                line += " ";
+                m += line.len();
+                i += 1;
+            }
+            line.push(c);
+            m += 1;
+        }
+
+        if line.len() > 0 {
+            lines.push(line)
+        }
+
+        for line in lines {
+            self.chat_messages.1.push(line);
+        }
+    }
 }
