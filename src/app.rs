@@ -8,7 +8,7 @@ use std::io::Stdout;
 
 pub struct App {
     pub current_screen: CurrentScreen,
-    pub mode: Option<Mode>,
+    pub mode: Mode,
     pub username: Option<String>,
     pub room_name: Option<String>,
     pub chat_input: String,
@@ -27,15 +27,16 @@ pub struct App {
     pub room_index: usize,
 }
 
+#[derive(Clone, Copy)]
 pub enum CurrentScreen {
     Login,
     Main,
     Quit,
 }
 
+#[derive(Clone, Copy)]
 pub enum Mode {
     Main,
-    Searching,
     Inputing,
 }
 
@@ -50,7 +51,7 @@ impl App {
     pub fn new() -> Self {
         App {
             current_screen: CurrentScreen::Login,
-            mode: None,
+            mode: Mode::Main,
             username: None,
             room_name: None,
             chat_input: String::new(),
@@ -81,9 +82,20 @@ impl App {
     fn handle_events(&mut self) -> Result<()> {
         match event::read()? {
             Event::Key(key) if key.kind == KeyEventKind::Press => match self.current_screen {
-                CurrentScreen::Main => match key.code {
-                    KeyCode::Esc => self.current_screen = CurrentScreen::Quit,
-                    _ => {}
+                CurrentScreen::Main => match self.mode {
+                    Mode::Main => match key.code {
+                        KeyCode::Esc => self.current_screen = CurrentScreen::Quit,
+                        KeyCode::Up => self.scroll_up(),
+                        KeyCode::Down => self.scroll_down(),
+                        KeyCode::Char(' ') => self.mode = Mode::Inputing,
+                        _ => {}
+                    },
+                    Mode::Inputing => match key.code {
+                        KeyCode::Char(c) => self.enter_char(c, self.inserting),
+                        KeyCode::Esc => self.mode = Mode::Main,
+                        KeyCode::Enter => self.submit_msg(),
+                        _ => {}
+                    },
                 },
                 CurrentScreen::Quit => match key.code {
                     KeyCode::Char('y') => self.exit(),
@@ -136,7 +148,17 @@ impl App {
         self.username = Some(self.username_input.clone());
         self.room_name = Some(self.room_input.clone());
         self.current_screen = CurrentScreen::Main;
-        self.mode = Some(Mode::Main);
+        self.add_user(self.username_input.clone());
+        self.inserting = Inserting::Chat;
+    }
+
+    fn submit_msg(&mut self) {
+        self.add_message_to_networklog_and_chat(
+            self.username.as_ref().unwrap().clone(),
+            self.chat_input.clone(),
+        );
+        self.chat_input.clear();
+        self.reset_cursor(self.inserting);
     }
 
     fn scroll_up(&mut self) {
@@ -325,10 +347,10 @@ impl App {
         self.chat_messages = (window_width, lines);
     }
 
-    pub fn add_message_to_network_and_chat(&mut self, username: String, msg: String) {
+    pub fn add_message_to_networklog_and_chat(&mut self, username: String, msg: String) {
         self.network_messages.push((username.clone(), msg.clone()));
         let mut lines = Vec::new();
-        let mut i = 1;
+        let mut i = self.chat_messages.1.len() + 1;
         let formated_msg = format!("|{username}| {msg}");
 
         let mut line = String::new();
@@ -356,5 +378,9 @@ impl App {
         for line in lines {
             self.chat_messages.1.push(line);
         }
+    }
+
+    pub fn add_user(&mut self, username: String) {
+        self.online_users.insert(username);
     }
 }

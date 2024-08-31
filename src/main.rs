@@ -3,6 +3,7 @@ use color_eyre::Result;
 use tui::init_panic_hook;
 
 mod app;
+mod network;
 mod tui;
 mod ui;
 

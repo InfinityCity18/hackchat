@@ -1,4 +1,4 @@
-use crate::app::{App, CurrentScreen, Inserting};
+use crate::app::{App, CurrentScreen, Inserting, Mode};
 use ratatui::widgets::block::{Position, Title};
 use ratatui::widgets::{BorderType, Clear, List, ListItem, Paragraph};
 use ratatui::{prelude::*, widgets::Block};
@@ -49,6 +49,10 @@ impl App {
 
             let para = Paragraph::new(self.chat_input.clone()).block(chat_input_block);
             frame.render_widget(para, chat_input);
+
+            if let Mode::Inputing = self.mode {
+                frame.set_cursor_position(self.cursor_pos(chat_input, self.inserting))
+            }
         }
 
         {
