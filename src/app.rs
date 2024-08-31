@@ -5,6 +5,7 @@ use ratatui::prelude::Rect;
 use ratatui::{backend::CrosstermBackend, Terminal};
 use std::collections::HashSet;
 use std::io::Stdout;
+use std::sync::{Arc, Mutex};
 
 pub struct App {
     pub current_screen: CurrentScreen,
@@ -13,12 +14,12 @@ pub struct App {
     pub room_name: Option<String>,
     pub chat_input: String,
     pub chat_input_index: usize,
-    pub network_messages: Vec<(String, String)>,
-    pub chat_messages: (usize, Vec<String>),
+    pub network_messages: Arc<Mutex<Vec<(String, String)>>>,
+    pub chat_messages: Arc<Mutex<(usize, Vec<String>)>>,
     pub chat_index: usize,
     pub max_chat_index: usize,
     pub exit: bool,
-    pub online_users: HashSet<String>,
+    pub online_users: Arc<Mutex<HashSet<String>>>,
     pub follow_chat: bool,
     pub inserting: Inserting,
     pub username_input: String,
@@ -56,12 +57,12 @@ impl App {
             room_name: None,
             chat_input: String::new(),
             chat_input_index: 0,
-            network_messages: Vec::new(),
-            chat_messages: (0, Vec::new()),
+            network_messages: Arc::new(Mutex::new(Vec::new())),
+            chat_messages: Arc::new(Mutex::new((0, Vec::new()))),
             chat_index: 0,
             max_chat_index: 0,
             exit: false,
-            online_users: HashSet::new(),
+            online_users: Arc::new(Mutex::new(HashSet::new())),
             follow_chat: false,
             inserting: Inserting::Username,
             username_input: String::new(),
@@ -318,7 +319,7 @@ impl App {
         let mut lines: Vec<String> = Vec::new();
 
         let mut i = 1;
-        for (username, msg) in &self.network_messages {
+        for (username, msg) in &*self.network_messages.lock().unwrap() {
             let formated_msg = format!("|{username}| {msg}");
 
             let mut line = String::new();
@@ -344,19 +345,20 @@ impl App {
             }
         }
 
-        self.chat_messages = (window_width, lines);
+        self.chat_messages = Arc::new(Mutex::new((window_width, lines)));
     }
 
     pub fn add_message_to_networklog_and_chat(&mut self, username: String, msg: String) {
-        self.network_messages.push((username.clone(), msg.clone()));
+        (*self.network_messages.lock().unwrap()).push((username.clone(), msg.clone()));
+        let mut lock = self.chat_messages.lock().unwrap();
         let mut lines = Vec::new();
-        let mut i = self.chat_messages.1.len() + 1;
+        let mut i = lock.1.len() + 1;
         let formated_msg = format!("|{username}| {msg}");
 
         let mut line = String::new();
         let mut m = 0;
         for c in formated_msg.chars() {
-            if m % self.chat_messages.0 == 0 {
+            if m % lock.0 == 0 {
                 if line.len() > 0 {
                     lines.push(line.clone());
                 }
@@ -376,11 +378,11 @@ impl App {
         }
 
         for line in lines {
-            self.chat_messages.1.push(line);
+            lock.1.push(line);
         }
     }
 
     pub fn add_user(&mut self, username: String) {
-        self.online_users.insert(username);
+        self.online_users.lock().unwrap().insert(username);
     }
 }

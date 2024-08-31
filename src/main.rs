@@ -14,8 +14,13 @@ fn main() -> Result<()> {
     let mut terminal = tui::init_tui()?;
     let mut app = App::new();
 
-    app.online_users.insert("User2137".to_string());
+    app.online_users
+        .lock()
+        .unwrap()
+        .insert("User2137".to_string());
     app.network_messages
+        .lock()
+        .unwrap()
         .push(("test".to_string(), "hi :3".to_string()));
     app.room_name = Some("bajo jajo".to_string());
     app.username = Some("user2".to_string());

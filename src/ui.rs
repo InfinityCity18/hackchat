@@ -26,7 +26,7 @@ impl App {
                 );
 
             let mut list_items: Vec<ListItem> = Vec::new();
-            for username in &self.online_users {
+            for username in &*self.online_users.lock().unwrap() {
                 list_items.push(ListItem::new(Text::from(format!("> {}", username.clone()))));
             }
             let usernames_list = List::new(list_items).block(online_users_block);
@@ -38,6 +38,8 @@ impl App {
 
         self.max_chat_index = self
             .chat_messages
+            .lock()
+            .unwrap()
             .1
             .len()
             .checked_sub(messages_box.height as usize - BORDER_WIDTH)
@@ -77,22 +79,26 @@ impl App {
             }
 
             let mut messages_list: Vec<ListItem> = Vec::new();
-            if self.chat_messages.0 != (messages_box.width as usize).saturating_sub(BORDER_WIDTH) {
+            if self.chat_messages.lock().unwrap().0
+                != (messages_box.width as usize).saturating_sub(BORDER_WIDTH)
+            {
                 self.create_lines((messages_box.width as usize).saturating_sub(BORDER_WIDTH));
             }
 
             let start = self.chat_index.clamp(
                 0,
                 self.chat_messages
+                    .lock()
+                    .unwrap()
                     .1
                     .len()
                     .checked_sub(messages_box.height as usize - BORDER_WIDTH)
                     .unwrap_or(0),
             );
             let end = (start + messages_box.height as usize - BORDER_WIDTH)
-                .clamp(start, self.chat_messages.1.len());
+                .clamp(start, self.chat_messages.lock().unwrap().1.len());
 
-            for s in &self.chat_messages.1[start..end] {
+            for s in &self.chat_messages.lock().unwrap().1[start..end] {
                 messages_list.push(ListItem::new(Text::from(s.clone())));
             }
 
