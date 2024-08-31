@@ -48,7 +48,7 @@ impl App {
                 .style(Style::default())
                 .border_type(BorderType::Rounded);
 
-            let para = Paragraph::new(self.input_field.clone()).block(chat_input_block);
+            let para = Paragraph::new(self.chat_input.clone()).block(chat_input_block);
             frame.render_widget(para, chat_input);
         }
 
@@ -98,7 +98,7 @@ impl App {
         }
 
         match self.current_screen {
-            CurrentScreen::Enter => {
+            CurrentScreen::Login => {
                 let window = centered_rect(50, 50, frame.area());
                 let enter_block = Block::bordered()
                     .border_type(BorderType::Rounded)
@@ -124,7 +124,26 @@ impl App {
                 frame.render_widget(room_input, room_rect);
             }
             CurrentScreen::Main => {}
-            CurrentScreen::Quit => {}
+            CurrentScreen::Quit => {
+                let [_, window, _] = Layout::vertical([
+                    Constraint::Percentage(100),
+                    Constraint::Length(3),
+                    Constraint::Percentage(100),
+                ])
+                .areas(frame.area());
+                let [_, window, _] = Layout::horizontal([
+                    Constraint::Percentage(100),
+                    Constraint::Length(3),
+                    Constraint::Percentage(100),
+                ])
+                .areas(window);
+                let block = Block::bordered().border_type(BorderType::Rounded);
+                let para = Paragraph::new("Do you want to quit? y/n")
+                    .centered()
+                    .block(block);
+                frame.render_widget(Clear, window);
+                frame.render_widget(para, window);
+            }
         }
     }
 }

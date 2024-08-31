@@ -11,8 +11,8 @@ pub struct App {
     pub mode: Option<Mode>,
     pub username: Option<String>,
     pub room_name: Option<String>,
-    pub input_field: String,
-    pub input_index: usize,
+    pub chat_input: String,
+    pub chat_input_index: usize,
     pub network_messages: Vec<(String, String)>,
     pub chat_messages: (usize, Vec<String>),
     pub chat_index: usize,
@@ -24,11 +24,11 @@ pub struct App {
     pub username_input: String,
     pub room_input: String,
     pub username_index: usize,
-    pub room_indes: usize,
+    pub room_index: usize,
 }
 
 pub enum CurrentScreen {
-    Enter,
+    Login,
     Main,
     Quit,
 }
@@ -39,20 +39,22 @@ pub enum Mode {
     Inputing,
 }
 
+#[derive(Clone, Copy)]
 pub enum Inserting {
     Username,
     Room,
+    Chat,
 }
 
 impl App {
     pub fn new() -> Self {
         App {
-            current_screen: CurrentScreen::Enter,
+            current_screen: CurrentScreen::Login,
             mode: None,
             username: None,
             room_name: None,
-            input_field: String::new(),
-            input_index: 0,
+            chat_input: String::new(),
+            chat_input_index: 0,
             network_messages: Vec::new(),
             chat_messages: (0, Vec::new()),
             chat_index: 0,
@@ -64,7 +66,7 @@ impl App {
             username_input: String::new(),
             room_input: String::new(),
             username_index: 0,
-            room_indes: 0,
+            room_index: 0,
         }
     }
 
@@ -81,7 +83,6 @@ impl App {
         match event::read()? {
             Event::Key(key) if key.kind == KeyEventKind::Press => match self.current_screen {
                 CurrentScreen::Main => match key.code {
-                    KeyCode::Esc => self.current_screen = CurrentScreen::Quit,
                     _ => {}
                 },
                 CurrentScreen::Quit => match key.code {
@@ -90,9 +91,20 @@ impl App {
                     KeyCode::Esc => self.current_screen = CurrentScreen::Main,
                     _ => {}
                 },
-                CurrentScreen::Enter => match key.code {
+                CurrentScreen::Login => match key.code {
                     KeyCode::Esc => self.exit(),
-                    KeyCode::Tab => s,
+                    KeyCode::Tab => self.switch_inserting_mode(),
+                    KeyCode::Char(c) => match self.inserting {
+                        Inserting::Username => self.enter_char(c, self.inserting),
+                        Inserting::Room => self.enter_char(c, self.inserting),
+                        Inserting::Chat => {}
+                    },
+                    KeyCode::Backspace => match self.inserting {
+                        Inserting::Username => self.delete_char(self.inserting),
+                        Inserting::Room => self.delete_char(self.inserting),
+                        Inserting::Chat => (),
+                    },
+                    _ => {}
                 },
             },
             _ => {}
@@ -104,6 +116,7 @@ impl App {
         match &self.inserting {
             Inserting::Username => self.inserting = Inserting::Room,
             Inserting::Room => self.inserting = Inserting::Username,
+            Inserting::Chat => {}
         }
     }
 
@@ -115,36 +128,129 @@ impl App {
         self.chat_index = (self.chat_index + 1).clamp(0, self.max_chat_index);
     }
 
-    fn move_cursor_left(&mut self) {
-        let cursor_moved_left = self.input_index.saturating_sub(1);
-        self.input_index = self.clamp_cursor(cursor_moved_left);
+    fn move_cursor_left(&mut self, inserting: Inserting) {
+        match inserting {
+            Inserting::Room => {
+                let cursor_moved_left = self.room_index.saturating_sub(1);
+                self.room_index = self.clamp_cursor(cursor_moved_left, inserting);
+            }
+            Inserting::Username => {
+                let cursor_moved_left = self.username_index.saturating_sub(1);
+                self.username_index = self.clamp_cursor(cursor_moved_left, inserting);
+            }
+            Inserting::Chat => {
+                let cursor_moved_left = self.chat_input_index.saturating_sub(1);
+                self.chat_input_index = self.clamp_cursor(cursor_moved_left, inserting);
+            }
+        }
     }
 
-    fn move_cursor_right(&mut self) {
-        let cursor_moved_right = self.input_index.saturating_add(1);
-        self.input_index = self.clamp_cursor(cursor_moved_right);
+    fn move_cursor_right(&mut self, inserting: Inserting) {
+        match inserting {
+            Inserting::Room => {
+                let cursor_moved_right = self.room_index.saturating_add(1);
+                self.room_index = self.clamp_cursor(cursor_moved_right, inserting);
+            }
+            Inserting::Username => {
+                let cursor_moved_right = self.username_index.saturating_add(1);
+                self.username_index = self.clamp_cursor(cursor_moved_right, inserting);
+            }
+            Inserting::Chat => {
+                let cursor_moved_right = self.chat_input_index.saturating_add(1);
+                self.chat_input_index = self.clamp_cursor(cursor_moved_right, inserting);
+            }
+        }
     }
 
-    fn clamp_cursor(&self, new_cursor_pos: usize) -> usize {
-        new_cursor_pos.clamp(0, self.input_field.chars().count())
+    fn clamp_cursor(&self, new_cursor_pos: usize, inserting: Inserting) -> usize {
+        let count;
+        match inserting {
+            Inserting::Username => count = self.username_input.chars().count(),
+            Inserting::Room => count = self.room_input.chars().count(),
+            Inserting::Chat => count = self.chat_input.chars().count(),
+        }
+        new_cursor_pos.clamp(0, count)
     }
 
-    fn reset_cursor(&mut self) {
-        self.input_index = 0;
+    fn reset_cursor(&mut self, inserting: Inserting) {
+        match inserting {
+            Inserting::Room => self.room_index = 0,
+            Inserting::Username => self.username_index = 0,
+            Inserting::Chat => self.chat_input_index = 0,
+        }
     }
 
-    fn enter_char(&mut self, new_char: char) {
-        let index = self.byte_index();
-        self.input_field.insert(index, new_char);
-        self.move_cursor_right();
+    fn enter_char(&mut self, new_char: char, inserting: Inserting) {
+        let index = self.byte_index(inserting);
+        match inserting {
+            Inserting::Room => self.room_input.insert(index, new_char),
+            Inserting::Chat => self.chat_input.insert(index, new_char),
+            Inserting::Username => self.username_input.insert(index, new_char),
+        }
+        self.move_cursor_right(inserting);
     }
 
-    fn byte_index(&self) -> usize {
-        self.input_field
-            .char_indices()
-            .map(|(i, _)| i)
-            .nth(self.input_index)
-            .unwrap_or(self.input_field.len())
+    fn delete_char(&mut self, inserting: Inserting) {
+        let is_not_cursor_leftmost = match inserting {
+            Inserting::Room => self.room_index != 0,
+            Inserting::Username => self.username_index != 0,
+            Inserting::Chat => self.chat_input_index != 0,
+        };
+        if is_not_cursor_leftmost {
+            match inserting {
+                Inserting::Room => {
+                    let current_index = self.room_index;
+                    let from_left_to_current_index = current_index - 1;
+                    let before_char_to_delete =
+                        self.room_input.chars().take(from_left_to_current_index);
+                    let after_char_to_delete = self.room_input.chars().skip(current_index);
+                    self.room_input = before_char_to_delete.chain(after_char_to_delete).collect();
+                    self.move_cursor_left(inserting);
+                }
+                Inserting::Username => {
+                    let current_index = self.username_index;
+                    let from_left_to_current_index = current_index - 1;
+                    let before_char_to_delete =
+                        self.username_input.chars().take(from_left_to_current_index);
+                    let after_char_to_delete = self.username_input.chars().skip(current_index);
+                    self.username_input =
+                        before_char_to_delete.chain(after_char_to_delete).collect();
+                    self.move_cursor_left(inserting);
+                }
+                Inserting::Chat => {
+                    let current_index = self.chat_input_index;
+                    let from_left_to_current_index = current_index - 1;
+                    let before_char_to_delete =
+                        self.chat_input.chars().take(from_left_to_current_index);
+                    let after_char_to_delete = self.chat_input.chars().skip(current_index);
+                    self.chat_input = before_char_to_delete.chain(after_char_to_delete).collect();
+                    self.move_cursor_left(inserting);
+                }
+            }
+        }
+    }
+
+    fn byte_index(&self, inserting: Inserting) -> usize {
+        match inserting {
+            Inserting::Room => self
+                .room_input
+                .char_indices()
+                .map(|(i, _)| i)
+                .nth(self.room_index)
+                .unwrap_or(self.room_input.len()),
+            Inserting::Chat => self
+                .chat_input
+                .char_indices()
+                .map(|(i, _)| i)
+                .nth(self.chat_input_index)
+                .unwrap_or(self.chat_input.len()),
+            Inserting::Username => self
+                .username_input
+                .char_indices()
+                .map(|(i, _)| i)
+                .nth(self.username_index)
+                .unwrap_or(self.username_input.len()),
+        }
     }
 
     pub fn exit(&mut self) {
