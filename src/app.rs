@@ -179,6 +179,11 @@ impl App {
         );
         self.chat_input.clear();
         self.reset_cursor(self.inserting);
+        let _ = self.tx.as_ref().unwrap().send(Op::Message(
+            OpCode::Message,
+            self.username.as_ref().unwrap().clone(),
+            self.chat_input.clone(),
+        ));
     }
 
     fn scroll_up(&mut self) {

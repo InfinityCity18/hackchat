@@ -45,7 +45,10 @@ impl TryFrom<u8> for OpCode {
 pub fn udp_manager(rx: Receiver<Op>, room: String, arcs: Arcs) -> Result<(), std::io::Error> {
     let socket = Arc::new(UdpSocket::bind((Ipv4Addr::UNSPECIFIED, PORT))?);
     socket.set_broadcast(true)?;
-    socket.connect(SocketAddr::from((Ipv4Addr::BROADCAST, PORT)))?;
+    socket.connect(SocketAddr::from((
+        "10.21.37.255".parse::<Ipv4Addr>().unwrap(),
+        PORT,
+    )))?;
 
     let presence_map = Arc::new(Mutex::new(HashMap::<String, Instant>::new()));
 
