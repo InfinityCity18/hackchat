@@ -5,10 +5,14 @@ use ratatui::prelude::Rect;
 use ratatui::{backend::CrosstermBackend, Terminal};
 use std::collections::HashSet;
 use std::io::Stdout;
-use std::sync::{Arc, Mutex};
+use std::sync::mpsc::channel;
+use std::sync::{mpsc::Sender, Arc, Mutex};
+
+use crate::network::Op;
 
 pub struct App {
     pub current_screen: CurrentScreen,
+    pub tx: Option<Sender<Op>>,
     pub mode: Mode,
     pub username: Option<String>,
     pub room_name: Option<String>,
@@ -52,6 +56,7 @@ impl App {
     pub fn new() -> Self {
         App {
             current_screen: CurrentScreen::Login,
+            tx: None,
             mode: Mode::Main,
             username: None,
             room_name: None,
@@ -151,6 +156,8 @@ impl App {
         self.current_screen = CurrentScreen::Main;
         self.add_user(self.username_input.clone());
         self.inserting = Inserting::Chat;
+        let (tx, rx) = channel::<Op>();
+        self.tx = Some(tx);
     }
 
     fn submit_msg(&mut self) {
