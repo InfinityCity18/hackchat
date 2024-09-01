@@ -8,7 +8,7 @@ use std::io::Stdout;
 use std::sync::mpsc::channel;
 use std::sync::{mpsc::Sender, Arc, Mutex};
 
-use crate::network::Op;
+use crate::network::{Op, OpCode};
 
 pub struct App {
     pub current_screen: CurrentScreen,
@@ -158,6 +158,18 @@ impl App {
         self.inserting = Inserting::Chat;
         let (tx, rx) = channel::<Op>();
         self.tx = Some(tx);
+        let arcs = crate::network::Arcs {
+            users: self.online_users.clone(),
+            network_messages: self.network_messages.clone(),
+            chat_messages: self.chat_messages.clone(),
+        };
+        let room_name = self.room_input.clone();
+        std::thread::spawn(|| crate::network::udp_manager(rx, room_name, arcs));
+        let _ = self
+            .tx
+            .as_ref()
+            .unwrap()
+            .send(Op::User(OpCode::User, self.username_input.clone()));
     }
 
     fn submit_msg(&mut self) {

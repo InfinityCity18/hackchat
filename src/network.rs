@@ -1,12 +1,12 @@
 use std::{
     cmp::min,
-    collections::{BTreeMap, HashMap, HashSet},
+    collections::{HashMap, HashSet},
     net::{Ipv4Addr, SocketAddr, UdpSocket},
     sync::{mpsc::Receiver, Arc, Mutex},
     time::{Duration, Instant},
 };
 
-use simple_crypt::decrypt;
+use simple_crypt::{decrypt, encrypt};
 
 const PORT: u16 = 7312;
 const SIGNATURE: &str = "github.com/InfinityCity18/hackchat";
@@ -43,7 +43,7 @@ impl TryFrom<u8> for OpCode {
 }
 
 pub fn udp_manager(rx: Receiver<Op>, room: String, arcs: Arcs) -> Result<(), std::io::Error> {
-    let socket = UdpSocket::bind((Ipv4Addr::UNSPECIFIED, PORT))?;
+    let socket = Arc::new(UdpSocket::bind((Ipv4Addr::UNSPECIFIED, PORT))?);
     socket.set_broadcast(true)?;
     socket.connect(SocketAddr::from((Ipv4Addr::BROADCAST, PORT)))?;
 
@@ -53,8 +53,13 @@ pub fn udp_manager(rx: Receiver<Op>, room: String, arcs: Arcs) -> Result<(), std
 
     let presence_map_clone = presence_map.clone();
     let users_clone = arcs.users.clone();
+    let room_clone = room.clone();
 
     std::thread::spawn(|| presence_manager(presence_map_clone, users_clone));
+    std::thread::spawn({
+        let socket = socket.clone();
+        move || udp_sender(socket, rx, room_clone)
+    });
 
     loop {
         let amount_read = socket.recv(&mut read_buf)?;
@@ -140,7 +145,7 @@ pub fn udp_manager(rx: Receiver<Op>, room: String, arcs: Arcs) -> Result<(), std
                                 presence_map
                                     .lock()
                                     .unwrap()
-                                    .insert(Instant::now() + PRESENCE_TIMER, username);
+                                    .insert(username, Instant::now() + PRESENCE_TIMER);
                             }
                             OpCode::Leave => {
                                 let username = match String::from_utf8(decrypted) {
@@ -170,10 +175,74 @@ fn presence_manager(
     users: Arc<Mutex<HashSet<String>>>,
 ) {
     loop {
-        let presences_lock = presences.lock().unwrap();
-        let mut min_instant = ;
+        let mut presences_lock = presences.lock().unwrap();
+        let mut users_lock = users.lock().unwrap();
+        let mut min_instant = Instant::now() + Duration::from_secs(10);
+        let mut to_del = Vec::new();
         for (s, i) in &*presences_lock {
-            min_instant = min(min_instant, i);
+            min_instant = min(min_instant, *i);
+            if *i < Instant::now() {
+                to_del.push(s.clone());
+            }
+        }
+        for s in to_del {
+            presences_lock.remove(&s);
+            users_lock.remove(&s);
+        }
+        drop(presences_lock);
+        drop(users_lock);
+        std::thread::sleep(min_instant - Instant::now());
+    }
+}
+
+fn udp_sender(socket: Arc<UdpSocket>, rx: Receiver<Op>, room: String) {
+    loop {
+        let msg = rx.recv().unwrap();
+        match msg {
+            Op::User(opcode, username) => {
+                let mut to_send = Vec::new();
+                to_send.extend_from_slice(SIGNATURE.as_bytes());
+                let mut to_encrypt = Vec::new();
+                to_encrypt.push(opcode as u8);
+                to_encrypt.extend_from_slice(username.as_bytes());
+                let encrypted = if let Ok(v) = encrypt(&to_encrypt, room.as_bytes()) {
+                    v
+                } else {
+                    continue;
+                };
+                to_send.extend_from_slice(&encrypted);
+                socket.send(&to_send);
+            }
+            Op::Leave(opcode, username) => {
+                let mut to_send = Vec::new();
+                to_send.extend_from_slice(SIGNATURE.as_bytes());
+                let mut to_encrypt = Vec::new();
+                to_encrypt.push(opcode as u8);
+                to_encrypt.extend_from_slice(username.as_bytes());
+                let encrypted = if let Ok(v) = encrypt(&to_encrypt, room.as_bytes()) {
+                    v
+                } else {
+                    continue;
+                };
+                to_send.extend_from_slice(&encrypted);
+                socket.send(&to_send);
+            }
+            Op::Message(opcode, username, msg) => {
+                let mut to_send = Vec::new();
+                to_send.extend_from_slice(SIGNATURE.as_bytes());
+                let mut to_encrypt = Vec::new();
+                to_encrypt.push(opcode as u8);
+                to_encrypt.extend_from_slice(username.as_bytes());
+                to_encrypt.push(0);
+                to_encrypt.extend_from_slice(msg.as_bytes());
+                let encrypted = if let Ok(v) = encrypt(&to_encrypt, room.as_bytes()) {
+                    v
+                } else {
+                    continue;
+                };
+                to_send.extend_from_slice(&encrypted);
+                socket.send(&to_send);
+            }
         }
     }
 }

@@ -8,7 +8,6 @@ mod tui;
 mod ui;
 
 fn main() -> Result<()> {
-    network::udp_manager();
     color_eyre::install()?;
     init_panic_hook();
     let mut terminal = tui::init_tui()?;
